@@ -355,6 +355,44 @@ jobs:
             cd ./KernelSU
             patch -p1 < 10_enable_susfs_for_ksu.patch || true
           fi
+
+      - name: 物理修复 KernelSU 头文件缺失 (终极暴力法)
+        run: |
+          cd kernel_workspace
+          if [[ ${{ github.event.inputs.ksu_type }} != "none" ]]; then
+            echo ">>> 正在启动物理文件覆盖，绕过 Kbuild 路径隔离限制..."
+            
+            # 1. 彻底删除源码树中自带的旧版本/空壳 kernelsu
+            rm -rf ./common/drivers/kernelsu
+            
+            # 2. 将源码与 uapi 文件夹转移进内核树中
+            if [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
+              cp -r ./KernelSU-Next/kernel ./common/drivers/kernelsu
+              cp -r ./KernelSU-Next/uapi ./common/drivers/kernelsu/ 2>/dev/null || true
+            else
+              cp -r ./KernelSU/kernel ./common/drivers/kernelsu
+              cp -r ./KernelSU/uapi ./common/drivers/kernelsu/ 2>/dev/null || true
+            fi
+            
+            # 3. 重新为 ksunext 补齐 apk_sign 补丁
+            if [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
+              cd ./common/drivers/kernelsu
+              wget -q https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/other_patch/apk_sign.patch
+              patch -p2 -N -F 3 < apk_sign.patch || true
+              cd ../../../
+            fi
+            
+            # 4. 【绝对绝杀】：把根目录所有的 .h 头文件和 uapi 文件夹，强行复制到每一个子文件夹里！
+            # 这样 core/init.c 和 feature/sulog.c 就能在本地直接找到依赖，无视路径屏蔽。
+            for dir in ./common/drivers/kernelsu/*/ ; do
+              if [ -d "$dir" ]; then
+                cp ./common/drivers/kernelsu/*.h "$dir" 2>/dev/null || true
+                cp -r ./common/drivers/kernelsu/uapi "$dir" 2>/dev/null || true
+              fi
+            done
+            
+            echo ">>> 物理头文件分发完成！"
+          fi
           
       - name: 应用lz4 1.10.0 & zstd 1.5.7补丁
         if: inputs.lz4_enable
