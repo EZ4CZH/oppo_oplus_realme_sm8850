@@ -1,0 +1,58 @@
+name: 构建纯静态 Android 版 ipset
+
+on:
+  workflow_dispatch: # 支持手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. 安装 ARM64 交叉编译工具链
+        run: |
+          sudo apt-get update
+          # 安装 aarch64 交叉编译器和构建工具
+          sudo apt-get install -y gcc-aarch64-linux-gnu pkg-config autoconf libtool make wget bzip2
+
+      - name: 2. 编译并安装依赖：libmnl (纯静态)
+        # ipset 强依赖 libmnl 库，我们必须先静态编译它
+        run: |
+          mkdir -p $HOME/build_env
+          wget https://netfilter.org/projects/libmnl/files/libmnl-1.0.5.tar.bz2
+          tar -xjf libmnl-1.0.5.tar.bz2
+          cd libmnl-1.0.5
+          # 指定目标架构，禁用共享库，启用静态库
+          ./configure --host=aarch64-linux-gnu --prefix=$HOME/build_env --enable-static --disable-shared
+          make -j$(nproc)
+          make install
+
+      - name: 3. 编译 ipset (纯静态)
+        run: |
+          wget https://ipset.netfilter.org/ipset-7.22.tar.bz2
+          tar -xjf ipset-7.22.tar.bz2
+          cd ipset-7.22
+          
+          # 告诉编译器去哪里找我们刚才编译的 libmnl
+          export PKG_CONFIG_PATH=$HOME/build_env/lib/pkgconfig
+          export CFLAGS="-I$HOME/build_env/include"
+          
+          # LDFLAGS="-static" 是让生成的二进制文件不依赖任何外部库的灵魂指令
+          # --with-kmod=no 表示我们只编译用户端工具，不编译内核模块（因为内核你已经编好了）
+          ./configure --host=aarch64-linux-gnu \
+                      LDFLAGS="-static" \
+                      --prefix=$HOME/build_env \
+                      --disable-shared \
+                      --with-kmod=no
+                      
+          make -j$(nproc)
+          make install
+
+      - name: 4. 提取并验证二进制文件
+        run: |
+          echo "检查编译出的文件架构：应该显示为 ARM aarch64 且 statically linked"
+          file $HOME/build_env/sbin/ipset
+
+      - name: 5. 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipset-android-aarch64
+          path: /home/runner/build_env/sbin/ipset
