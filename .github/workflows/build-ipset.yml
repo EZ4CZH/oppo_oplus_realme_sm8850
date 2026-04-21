@@ -1,44 +1,49 @@
-name: 构建纯静态 Android 版 ipset
+name: 构建纯静态 Android 版 ipset (Musl终极版)
 
 on:
-  workflow_dispatch: # 支持手动触发
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. 安装 ARM64 交叉编译工具链
+      - name: 1. 下载并安装 aarch64-linux-musl 交叉编译工具链
+        # 抛弃 Ubuntu 自带的 glibc 编译器，使用专门的 musl 静态编译器
         run: |
-          sudo apt-get update
-          # 安装 aarch64 交叉编译器和构建工具
-          sudo apt-get install -y gcc-aarch64-linux-gnu pkg-config autoconf libtool make wget bzip2
+          mkdir -p $HOME/toolchain
+          cd $HOME/toolchain
+          wget https://musl.cc/aarch64-linux-musl-cross.tgz
+          tar -xf aarch64-linux-musl-cross.tgz
+          echo "$HOME/toolchain/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
 
-      - name: 2. 编译并安装依赖：libmnl (纯静态)
-        # ipset 强依赖 libmnl 库，我们必须先静态编译它
+      - name: 2. 编译 libmnl (完全静态)
         run: |
           mkdir -p $HOME/build_env
           wget https://netfilter.org/projects/libmnl/files/libmnl-1.0.5.tar.bz2
           tar -xjf libmnl-1.0.5.tar.bz2
           cd libmnl-1.0.5
-          # 指定目标架构，禁用共享库，启用静态库
-          ./configure --host=aarch64-linux-gnu --prefix=$HOME/build_env --enable-static --disable-shared
+          
+          # 指定 host 为我们刚刚下载的 musl 编译器
+          ./configure --host=aarch64-linux-musl \
+                      --prefix=$HOME/build_env \
+                      --enable-static \
+                      --disable-shared
           make -j$(nproc)
           make install
 
-      - name: 3. 编译 ipset (纯静态)
+      - name: 3. 编译 ipset (完全静态)
         run: |
           wget https://ipset.netfilter.org/ipset-7.22.tar.bz2
           tar -xjf ipset-7.22.tar.bz2
           cd ipset-7.22
           
-          # 告诉编译器去哪里找我们刚才编译的 libmnl
           export PKG_CONFIG_PATH=$HOME/build_env/lib/pkgconfig
           export CFLAGS="-I$HOME/build_env/include"
           
-          # LDFLAGS="-static" 是让生成的二进制文件不依赖任何外部库的灵魂指令
-          # --with-kmod=no 表示我们只编译用户端工具，不编译内核模块（因为内核你已经编好了）
-          ./configure --host=aarch64-linux-gnu \
-                      LDFLAGS="-static" \
+          # 核心魔法：向 LDFLAGS 注入 -static 和 -all-static，彻底锁死动态链接
+          export LDFLAGS="-L$HOME/build_env/lib -static -all-static"
+          
+          ./configure --host=aarch64-linux-musl \
                       --prefix=$HOME/build_env \
                       --disable-shared \
                       --with-kmod=no
@@ -46,13 +51,17 @@ jobs:
           make -j$(nproc)
           make install
 
-      - name: 4. 提取并验证二进制文件
+      - name: 4. 验证二进制文件架构
         run: |
-          echo "检查编译出的文件架构：应该显示为 ARM aarch64 且 statically linked"
+          echo "==== 查看文件属性，见证奇迹 ===="
           file $HOME/build_env/sbin/ipset
+          # 此时输出必须包含 statically linked，并且绝对没有 dynamic 提示
+          
+          mkdir -p $GITHUB_WORKSPACE/output
+          cp $HOME/build_env/sbin/ipset $GITHUB_WORKSPACE/output/
 
-      - name: 5. 上传产物
+      - name: 5. 上传最终产物
         uses: actions/upload-artifact@v4
         with:
-          name: ipset-android-aarch64
-          path: /home/runner/build_env/sbin/ipset
+          name: ipset-android-aarch64-musl-static
+          path: output/ipset
