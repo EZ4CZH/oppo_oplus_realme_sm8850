@@ -1,4 +1,4 @@
-name: 构建纯静态 Android 版 ipset (Musl终极版)
+name: 构建纯静态 Android 版 ipset (Bootlin Musl)
 
 on:
   workflow_dispatch:
@@ -7,14 +7,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. 下载并安装 aarch64-linux-musl 交叉编译工具链
-        # 抛弃 Ubuntu 自带的 glibc 编译器，使用专门的 musl 静态编译器
+      - name: 1. 下载并安装 aarch64-linux-musl 交叉编译工具链 (Bootlin稳定源)
         run: |
           mkdir -p $HOME/toolchain
           cd $HOME/toolchain
-          wget https://musl.cc/aarch64-linux-musl-cross.tgz
-          tar -xf aarch64-linux-musl-cross.tgz
-          echo "$HOME/toolchain/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+          # 使用 Bootlin 的企业级稳定镜像
+          wget https://toolchains.bootlin.com/downloads/releases/toolchains/aarch64/tarballs/aarch64--musl--stable-2024.05-1.tar.bz2
+          tar -xjf aarch64--musl--stable-2024.05-1.tar.bz2
+          # 将工具链的 bin 目录加入 GitHub Actions 的全局环境变量
+          echo "$HOME/toolchain/aarch64--musl--stable-2024.05-1/bin" >> $GITHUB_PATH
 
       - name: 2. 编译 libmnl (完全静态)
         run: |
@@ -23,8 +24,8 @@ jobs:
           tar -xjf libmnl-1.0.5.tar.bz2
           cd libmnl-1.0.5
           
-          # 指定 host 为我们刚刚下载的 musl 编译器
-          ./configure --host=aarch64-linux-musl \
+          # Bootlin 编译器的前缀是 aarch64-linux
+          ./configure --host=aarch64-linux \
                       --prefix=$HOME/build_env \
                       --enable-static \
                       --disable-shared
@@ -37,13 +38,14 @@ jobs:
           tar -xjf ipset-7.22.tar.bz2
           cd ipset-7.22
           
+          # 指定依赖库的位置
           export PKG_CONFIG_PATH=$HOME/build_env/lib/pkgconfig
           export CFLAGS="-I$HOME/build_env/include"
           
-          # 核心魔法：向 LDFLAGS 注入 -static 和 -all-static，彻底锁死动态链接
+          # 核心魔法：注入 -static 和 -all-static，彻底锁死动态链接
           export LDFLAGS="-L$HOME/build_env/lib -static -all-static"
           
-          ./configure --host=aarch64-linux-musl \
+          ./configure --host=aarch64-linux \
                       --prefix=$HOME/build_env \
                       --disable-shared \
                       --with-kmod=no
@@ -55,7 +57,7 @@ jobs:
         run: |
           echo "==== 查看文件属性，见证奇迹 ===="
           file $HOME/build_env/sbin/ipset
-          # 此时输出必须包含 statically linked，并且绝对没有 dynamic 提示
+          # 正常情况下，输出必须包含 statically linked
           
           mkdir -p $GITHUB_WORKSPACE/output
           cp $HOME/build_env/sbin/ipset $GITHUB_WORKSPACE/output/
@@ -63,5 +65,5 @@ jobs:
       - name: 5. 上传最终产物
         uses: actions/upload-artifact@v4
         with:
-          name: ipset-android-aarch64-musl-static
+          name: ipset-android-aarch64-bootlin-static
           path: output/ipset
