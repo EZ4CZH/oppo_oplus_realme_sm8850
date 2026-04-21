@@ -41,15 +41,16 @@ jobs:
           export PKG_CONFIG_PATH=$HOME/build_env/lib/pkgconfig
           export CFLAGS="-I$HOME/build_env/include"
           
-          # 核心魔法：注入 -static 和 -all-static，彻底锁死动态链接
-          export LDFLAGS="-L$HOME/build_env/lib -static -all-static"
+          # 【核心修复】：去掉坑人的 -all-static，只保留 -static 给 GCC
+          export LDFLAGS="-L$HOME/build_env/lib -static"
           
           ./configure --host=aarch64-linux-musl \
                       --prefix=$HOME/build_env \
                       --disable-shared \
                       --with-kmod=no
-                      
-          make -j$(nproc)
+          
+          # 在编译阶段强制 libtool 执行全静态链接
+          make LDFLAGS="-all-static" -j$(nproc)
           make install
 
       - name: 4. 验证二进制文件架构
