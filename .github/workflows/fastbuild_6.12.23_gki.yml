@@ -355,6 +355,7 @@ jobs:
             cd ./KernelSU
             patch -p1 < 10_enable_susfs_for_ksu.patch || true
           fi
+
           
       - name: 应用lz4 1.10.0 & zstd 1.5.7补丁
         if: inputs.lz4_enable
@@ -380,6 +381,7 @@ jobs:
         if: inputs.susfs_enable
         run: |
           cd kernel_workspace
+          echo "CONFIG_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -591,12 +593,27 @@ jobs:
           SO_DIR=$(pwd)
           export PRELOAD_LIBS="$SO_DIR/libfakestat.so $SO_DIR/libfaketimeMT.so"
           export REAL_CLANG_PATH="$WORKDIR/kernel_workspace/clang19/bin/clang"
+
+          # 【终极防线 1】：在编译启动前最后一秒，强行覆盖 KSU 代码，确保它绝对存在！
+          echo ">>> 正在执行编译前最后的 KernelSU 源码物理同步..."
+          KSU_SRC_DIR=""
+          if [ -d "$WORKDIR/kernel_workspace/KernelSU-Next" ]; then
+             KSU_SRC_DIR="$WORKDIR/kernel_workspace/KernelSU-Next"
+          elif [ -d "$WORKDIR/kernel_workspace/KernelSU" ]; then
+             KSU_SRC_DIR="$WORKDIR/kernel_workspace/KernelSU"
+          fi
+          if [ -n "$KSU_SRC_DIR" ]; then
+             rm -rf $WORKDIR/kernel_workspace/common/drivers/kernelsu
+             cp -r $KSU_SRC_DIR/kernel $WORKDIR/kernel_workspace/common/drivers/kernelsu
+             cp -r $KSU_SRC_DIR/uapi $WORKDIR/kernel_workspace/common/drivers/kernelsu/ 2>/dev/null || true
+          fi
           #创建 CC (编译器) 包装器
           echo '#!/bin/bash' > cc-wrapper
           echo 'export LD_PRELOAD="'$PRELOAD_LIBS'"' >> cc-wrapper
           echo 'export FAKESTAT="'$FAKESTAT'"' >> cc-wrapper
           echo 'export FAKETIME="'$FAKETIME'"' >> cc-wrapper
-          echo 'ccache $REAL_CLANG_PATH "$@"' >> cc-wrapper
+          echo "KSU_PATH=\"$WORKDIR/kernel_workspace/common/drivers/kernelsu\"" >> cc-wrapper
+          echo 'ccache $REAL_CLANG_PATH -I"$KSU_PATH" -I"$KSU_PATH/include" -I"$KSU_PATH/uapi" -I"$KSU_PATH/core" "$@"' >> cc-wrapper
           #创建 LD (链接器) 包装器
           echo '#!/bin/bash' > ld-wrapper
           echo 'export LD_PRELOAD="'$PRELOAD_LIBS'"' >> ld-wrapper
