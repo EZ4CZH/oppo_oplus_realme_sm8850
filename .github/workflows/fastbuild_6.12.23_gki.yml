@@ -432,6 +432,28 @@ jobs:
           # 6.12内核Rust配置
           echo "CONFIG_RUST=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_ANDROID_BINDER_IPC_RUST=m" >> ./common/arch/arm64/configs/gki_defconfig
+          # 1. 现代调度器与瞬时负载压榨 (Uclamp)
+          echo "CONFIG_UCLAMP_TASK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_UCLAMP_TASK_GROUP=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          # 2. 核心功耗控制
+          echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_RCU_NOCB_CPU=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_RCU_NOCB_CPU_DEFAULT_ALL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_PREEMPT_VOLUNTARY=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_PREEMPT_DYNAMIC=y" >> ./common/arch/arm64/configs/gki_defconfig
+          # 3. F2FS 读写压榨与压缩
+          echo "CONFIG_F2FS_UNFAIR_RWSEM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_F2FS_FS_COMPRESSION=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_F2FS_FS_LZO=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_F2FS_FS_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_F2FS_FS_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_F2FS_FAULT_INJECTION=n" >> ./common/arch/arm64/configs/gki_defconfig
+          # 4. 内存寻址与分配加速 (THP & SLUB)
+          echo "CONFIG_TRANSPARENT_HUGEPAGE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TRANSPARENT_HUGEPAGE_MADVISE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_SLUB_CPU_PARTIAL=y" >> ./common/arch/arm64/configs/gki_defconfig
           
       - name: 启用网络功能增强优化配置
         if: inputs.better_net
