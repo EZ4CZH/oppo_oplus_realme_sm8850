@@ -590,6 +590,7 @@ jobs:
           echo "CONFIG_REKERNEL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_REKERNEL_NETWORK=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_VENDOR_HOOKS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ANDROID_VENDOR_HOOKS=y" >> ./common/arch/arm64/configs/gki_defconfig
 
       - name: 启用内核级基带保护
         if: inputs.baseband_guard
