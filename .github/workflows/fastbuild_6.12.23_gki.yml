@@ -497,7 +497,6 @@ jobs:
           echo "CONFIG_DEBUG_KMEMLEAK=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_PROVE_LOCKING=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_LOCK_STAT=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_FTRACE=n" >> ./common/arch/arm64/configs/gki_defconfig
           # --- 结束彻底剥离调试信息 ---
           
       - name: 启用网络功能增强优化配置
@@ -718,6 +717,22 @@ jobs:
           export OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump OBJSIZE=llvm-size STRIP=llvm-strip
           # 5. 编译前运行官方环境配置脚本
           source "./_setup_env.sh" 2>/dev/null || true
+
+          # --- 开始 ZRAM 驱动源码级手术 (强力对抗 HyperOS 篡改) ---
+          echo "正在篡改 ZRAM 驱动源码..."
+          # 1. 彻底抹除源码中的 lzo 回退路径，全系替换为 lz4
+          sed -i 's/"lzo-rle"/"lz4"/g' ./drivers/block/zram/zram_drv.c
+          sed -i 's/"lzo"/"lz4"/g' ./drivers/block/zram/zram_drv.c
+          
+          # 2. 物理阉割压缩算法的写入接口
+          # 原理：在 comp_algorithm_store 函数的第一行直接 return len;
+          # 这样小米系统写入时会收到“写入成功”的假信号，但底层算法纹丝不动，依然是我们的 LZ4。
+          sed -i '/static ssize_t comp_algorithm_store/,/^{/!b;//a\        return len; \/\/ Blocked by custom kernel' ./drivers/block/zram/zram_drv.c
+          
+          # 3. 拦截并覆写 ZRAM 大小分配接口
+          # 原理：在内核接收到系统传来的大小变量后，强行将其覆盖为 16GB (17179869184 Bytes)。
+          sed -i '/disksize = memparse/a\        disksize = 17179869184ULL; \/\/ Forced 16GB by custom kernel' ./drivers/block/zram/zram_drv.c
+          # --- ZRAM 源码手术完成 ---
           
           # --- 开始覆盖 GKI 的 1970 默认时间与固定编译者 ---
           export SOURCE_DATE_EPOCH=$(date +%s)
