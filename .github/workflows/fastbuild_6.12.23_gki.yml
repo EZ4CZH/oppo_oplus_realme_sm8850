@@ -474,6 +474,31 @@ jobs:
           
           # 开启MGLRU状态监控接口
           echo "CONFIG_LRU_GEN_STATS=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          # --- 开始彻底剥离调试信息 (内核极致瘦身) ---
+          echo "正在彻底物理阉割 DWARF 和 BTF 调试信息..."
+          
+          # 1. 彻底关闭 DWARF 核心开关 (Linux 6.x 新引入的强力屏蔽选项)
+          echo "CONFIG_DEBUG_INFO_NONE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 2. 阻断任何特定版本的 DWARF 生成
+          echo "CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEBUG_INFO_DWARF4=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEBUG_INFO_DWARF5=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEBUG_INFO_REDUCED=n" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 3. 彻底屏蔽 BTF
+          echo "CONFIG_DEBUG_INFO_BTF=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_PAHOLE_HAS_SPLIT_BTF=n" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 4. 顺手关掉几个极其吃 CPU 资源的内核开发级检测机制
+          # (这些在日常日用中完全没用，关掉能省电 + 降低延迟)
+          echo "CONFIG_DEBUG_KMEMLEAK=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_PROVE_LOCKING=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_LOCK_STAT=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_FTRACE=n" >> ./common/arch/arm64/configs/gki_defconfig
+          # --- 结束彻底剥离调试信息 ---
           
       - name: 启用网络功能增强优化配置
         if: inputs.better_net
