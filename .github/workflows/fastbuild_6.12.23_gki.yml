@@ -674,7 +674,7 @@ jobs:
           export OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump OBJSIZE=llvm-size STRIP=llvm-strip
           # 5. 编译前运行官方环境配置脚本
           source "./_setup_env.sh" 2>/dev/null || true
-          # --- 开始 ZRAM 驱动源码级手术 (强力对抗 HyperOS 篡改) ---
+          # --- 开始 ZRAM 驱动源码级手术 ---
           echo "正在篡改 ZRAM 驱动源码..."
           # 1. 彻底抹除源码中的 lzo 回退路径，全系替换为 lz4
           sed -i 's/"lzo-rle"/"lz4"/g' ./drivers/block/zram/zram_drv.c
@@ -683,12 +683,30 @@ jobs:
           sed -i '/static ssize_t comp_algorithm_store/,/^{/!b;//a\        return len; \/\/ Blocked by custom kernel' ./drivers/block/zram/zram_drv.c
           # 3. 拦截并覆写 ZRAM 大小分配接口
           sed -i '/disksize = memparse/a\        disksize = 17179869184ULL; \/\/ Forced 16GB by custom kernel' ./drivers/block/zram/zram_drv.c
-          # --- ZRAM 源码手术完成 ---
+
+          
+          # --- 开始添加 DAMON 现代内存主动管理 ---
+          echo "正在开启 DAMON 相关配置..."
+          # 1. 开启 DAMON 核心框架
+          echo "CONFIG_DAMON=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DAMON_VADDR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DAMON_PADDR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DAMON_SYSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 2. 开启基于 DAMON 的主动回收 (最核心的功能)
+          echo "CONFIG_DAMON_RECLAIM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 3. 开启 DAMON 与 LRU 链表的深度结合 (配合 MGLRU 效果极佳)
+          echo "CONFIG_DAMON_LRU_SORT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # 开启MGLRU状态监控接口
+          echo "CONFIG_LRU_GEN_STATS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
           # --- 开始覆盖 GKI 的 1970 默认时间与固定编译者 ---
           export SOURCE_DATE_EPOCH=$(date +%s)
           export KBUILD_BUILD_TIMESTAMP="$(TZ='Asia/Shanghai' date)"
           export KBUILD_BUILD_USER="$GITHUB_ACTOR"
-          export KBUILD_BUILD_HOST="GitHub-Actions"
+          export KBUILD_BUILD_HOST="build-host"
           # --- 结束覆盖 ---
           
           #在构建内核的同时清除不必要的.NET, Android NDK, Haskell, CodeQL运行库，清理空间且不阻塞后续步骤运行
