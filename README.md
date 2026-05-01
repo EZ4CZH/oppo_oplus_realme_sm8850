@@ -31,6 +31,13 @@
 - [x] 添加了对[Mountify](https://github.com/backslashxx/mountify)模块的支持
 - [x] 加入Re:Kernel支持，与Freezer，NoActive等软件配合降低功耗
 - [x] 加入[内核防格基带保护(By @showdo)](https://github.com/vc-teahouse/Baseband-guard)，有效防止恶意格机脚本/程序对系统分区数据的破坏
+- [x] 开启 Uclamp 现代调度机制与瞬时负载压榨（精确控制任务频率上下限，配合 Schedutil 调度器实现更灵敏的瞬时性能释放，拒绝“用力过猛”引发的额外发热）
+- [x] 深度优化核心功耗控制（开启 RCU_NOCB 回调卸载与 PREEMPT_DYNAMIC 动态抢占，大幅减少 CPU 空闲时的无效唤醒，完美兼顾极限待机能效与前台 UI 丝滑度）
+- [x] 开启 F2FS 存储满血读写与底层透明压缩（原生支持 LZ4/LZ4HC/LZO 硬件级压缩，配合 unfair rwsem 读写信号量机制，显著提升大型应用冷启动与游戏加载速度）
+- [x] 优化底层内存寻址与分配架构（开启 THP 透明大页与 SLUB 内存分配器 CPU Partial 缓存，成倍提升超大内存设备的数据寻址效率，极大降低高负载下的内存分配延迟）
+- [x] 开启 `io_uring` 异步 I/O 引擎（将阻塞式读写转化为无锁异步批处理，大幅提升复杂挂载环境下的读写性能与应用冷启动速度）
+- [x] 开启 eBPF 满血网络架构支持（允许网络数据包在内核极底层被识别转发，显著降低代理软件及海量 IP 分流规则带来的 CPU 开销与发热）
+- [x] 破除 GKI 默认的可重现构建限制（1970 Linux 元年时间劫持），恢复真实的东八区内核编译时间戳与自定义构建者标识
 ## 待实现：
 - [ ] zram内置化，无需外置zram.ko挂载 ~~（有了新版 lz4&zstd 补丁真的还有必要吗）~~
 - [ ] LXC/Docker 功能支持
