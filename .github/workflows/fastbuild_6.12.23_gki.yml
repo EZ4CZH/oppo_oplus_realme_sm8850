@@ -454,9 +454,12 @@ jobs:
           echo "CONFIG_TRANSPARENT_HUGEPAGE=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TRANSPARENT_HUGEPAGE_MADVISE=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_SLUB_CPU_PARTIAL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # 5. 开启 io_uring 异步 I/O 引擎 (大幅提升复杂环境挂载与读写性能)
+          # 5. 设定 ZRAM 默认算法为 LZ4
+          echo "CONFIG_CRYPTO_LZ4=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ZRAM_DEF_COMP=\"lz4\"" >> ./common/arch/arm64/configs/gki_defconfig
+          # 6. 开启 io_uring 异步 I/O 引擎 (大幅提升复杂环境挂载与读写性能)
           echo "CONFIG_IO_URING=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # 6. 开启 eBPF 满血网络加速支持 (降低网络层级与代理软件的CPU开销)
+          # 7. 开启 eBPF 满血网络加速支持 (降低网络层级与代理软件的CPU开销)
           echo "CONFIG_BPF=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_BPF_SYSCALL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_BPF_JIT=y" >> ./common/arch/arm64/configs/gki_defconfig
