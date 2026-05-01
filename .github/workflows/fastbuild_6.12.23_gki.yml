@@ -454,6 +454,16 @@ jobs:
           echo "CONFIG_TRANSPARENT_HUGEPAGE=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TRANSPARENT_HUGEPAGE_MADVISE=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_SLUB_CPU_PARTIAL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          # 5. 开启 io_uring 异步 I/O 引擎 (大幅提升复杂环境挂载与读写性能)
+          echo "CONFIG_IO_URING=y" >> ./common/arch/arm64/configs/gki_defconfig
+          # 6. 开启 eBPF 满血网络加速支持 (降低网络层级与代理软件的CPU开销)
+          echo "CONFIG_BPF=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_BPF_SYSCALL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_BPF_JIT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CGROUP_BPF=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NET_CLS_BPF=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NET_ACT_BPF=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_BPF_STREAM_PARSER=y" >> ./common/arch/arm64/configs/gki_defconfig
           
       - name: 启用网络功能增强优化配置
         if: inputs.better_net
@@ -680,16 +690,6 @@ jobs:
           # 2. 物理阉割压缩算法的写入接口
           sed -i '/static ssize_t comp_algorithm_store/,/^{/!b;//a\        return len; \/\/ Blocked by custom kernel' ./drivers/block/zram/zram_drv.c
           # --- ZRAM 源码手术完成 ---
-
-          # --- 开始添加 DAMON 现代内存主动管理 ---
-          echo "正在开启 DAMON 相关配置..."
-          # 1. 开启 DAMON 核心框架
-          echo "CONFIG_DAMON=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DAMON_VADDR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DAMON_PADDR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DAMON_SYSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # 2. 开启基于 DAMON 的主动回收 (最核心的功能)
-          echo "CONFIG_DAMON_RECLAIM=y" >> ./common/arch/arm64/configs/gki_defconfig
           
           # --- 开始覆盖 GKI 的 1970 默认时间与固定编译者 ---
           export SOURCE_DATE_EPOCH=$(date +%s)
