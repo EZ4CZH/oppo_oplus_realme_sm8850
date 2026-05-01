@@ -464,14 +464,6 @@ jobs:
           echo "CONFIG_NET_CLS_BPF=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_NET_ACT_BPF=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_BPF_STREAM_PARSER=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # 7. 启用现代 TEO 空闲调度器
-          echo "CONFIG_CPU_IDLE_GOV_TEO=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CPU_IDLE_GOV_MENU=n" >> ./common/arch/arm64/configs/gki_defconfig
-          # 8. 开启 Full Tickless (消除空闲时的无用时钟中断，压榨待机功耗)
-          echo "CONFIG_NO_HZ_FULL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CONTEXT_TRACKING_USER=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # 9. 强制开启能量感知调度模型 (精准匹配负载与核心频率，拒绝用力过猛)
-          echo "CONFIG_ENERGY_MODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
           
       - name: 启用网络功能增强优化配置
         if: inputs.better_net
